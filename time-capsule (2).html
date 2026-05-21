@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Capsule — Send a Message to the Future</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:            #04040a;
+  --bg2:           #08080f;
+  --surface:       rgba(255,255,255,0.03);
+  --surface-hover: rgba(255,255,255,0.055);
+  --border:        rgba(255,255,255,0.07);
+  --border-bright: rgba(255,255,255,0.13);
+  --purple:        #7c3aed;
+  --purple-mid:    #6d28d9;
+  --purple-soft:   #a78bfa;
+  --gold:          #c9a84c;
+  --gold-light:    #e8c97a;
+  --gold-dim:      rgba(201,168,76,0.18);
+  --text:          #edeae2;
+  --text-sub:      #8a8795;
+  --text-dim:      #3d3b4a;
+  --green:         #22c55e;
+  --red:           #ef4444;
+  --ff-display:    'Cormorant Garamond', Georgia, serif;
+  --ff-body:       'DM Sans', system-ui, sans-serif;
+  --ff-mono:       'DM Mono', 'Courier New', monospace;
+  --r-sm:          10px;
+  --r-md:          16px;
+  --r-lg:          24px;
+  --r-xl:          32px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ff-body);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--text-dim); border-radius: 2px; }
+
+/* ── CURSOR ────────────────────────── */
+@media (pointer: fine) {
+  body { cursor: none; }
+  button, a { cursor: none; }
+}
+#cur {
+  position: fixed; z-index: 9999;
+  width: 7px; height: 7px;
+  background: var(--gold-light); border-radius: 50%;
+  transform: translate(-50%,-50%);
+  transition: width .25s, height .25s, opacity .3s;
+  mix-blend-mode: screen; opacity: 0;
+  pointer-events: none;
+}
+#cur-ring {
+  position: fixed; z-index: 9998;
+  width: 32px; height: 32px;
+  border: 1px solid rgba(201,168,76,.45);
+  border-radius: 50%;
+  transform: translate(-50%,-50%);
+  transition: width .3s, height .3s;
+  pointer-events: none;
+}
+
+/* ── LOADER ────────────────────────── */
+#loader {
+  position: fixed; inset: 0; z-index: 10000;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 28px;
+  transition: opacity .7s ease, visibility .7s ease;
+}
+#loader.out { opacity: 0; visibility: hidden; pointer-events: none; }
+.ld-word {
+  font-family: var(--ff-display);
+  font-size: 1.7rem; font-weight: 300;
+  letter-spacing: .45em; color: var(--text-sub);
+  animation: ldPulse 2s ease infinite;
+}
+.ld-track { width: 160px; height: 1px; background: var(--text-dim); overflow: hidden; }
+.ld-fill  { height: 100%; background: linear-gradient(90deg, var(--purple-soft), var(--gold)); animation: ldFill 1.5s ease forwards; width: 0; }
+@keyframes ldPulse { 0%,100%{opacity:.35} 50%{opacity:1} }
+@keyframes ldFill  { to { width: 100%; } }
+
+/* ── BACKGROUND ─────────────────────── */
+#bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+.orb {
+  position: fixed; border-radius: 50%;
+  filter: blur(110px); pointer-events: none; z-index: 0;
+  animation: orbDrift linear infinite;
+  will-change: transform;
+}
+.orb-a { width: 700px; height: 700px; background: rgba(109,40,217,.09); top: -280px; left: -220px; animation-duration: 28s; }
+.orb-b { width: 550px; height: 550px; background: rgba(201,168,76,.055); bottom: -180px; right: -180px; animation-duration: 34s; animation-delay: -12s; }
+.orb-c { width: 420px; height: 420px; background: rgba(109,40,217,.06); top: 38%; left: 55%; animation-duration: 22s; animation-delay: -8s; }
+@keyframes orbDrift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  40%      { transform: translate(35px,-50px) scale(1.06); }
+  70%      { transform: translate(-25px,30px) scale(.96); }
+}
+
+/* ── LAYOUT ─────────────────────────── */
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+section { position: relative; z-index: 1; }
+
+/* ── NAV ─────────────────────────────── */
+nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 200;
+  padding: 22px 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background .35s, border-color .35s;
+  border-bottom: 1px solid transparent;
+}
+nav.scrolled {
+  background: rgba(4,4,10,.8);
+  border-color: var(--border);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+.nav-logo {
+  font-family: var(--ff-display); font-size: 1.1rem; font-weight: 400;
+  letter-spacing: .22em; color: var(--text); text-decoration: none;
+}
+.nav-logo span { color: var(--gold); }
+.nav-pill {
+  font-size: .76rem; letter-spacing: .12em; font-weight: 500;
+  color: var(--text-sub); text-transform: uppercase;
+  padding: 9px 20px; border: 1px solid var(--border);
+  border-radius: 100px; background: var(--surface);
+  text-decoration: none; transition: color .25s, border-color .25s, background .25s;
+  display: inline-block;
+}
+.nav-pill:hover { color: var(--text); border-color: rgba(201,168,76,.35); background: var(--gold-dim); }
+
+/* ── HERO ─────────────────────────────── */
+#hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 140px 28px 100px;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 18px; border-radius: 100px;
+  border: 1px solid rgba(201,168,76,.25);
+  background: rgba(201,168,76,.06);
+  font-family: var(--ff-mono); font-size: .68rem;
+  letter-spacing: .25em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 40px;
+  opacity: 0; animation: riseUp .9s ease .3s forwards;
+}
+.hero-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); animation: dotBlink 2s ease infinite; }
+@keyframes dotBlink { 0%,100%{opacity:.4} 50%{opacity:1} }
+
+.hero-h1 {
+  font-family: var(--ff-display);
+  font-size: clamp(3.4rem, 9vw, 7.5rem);
+  font-weight: 300; line-height: 1.04; letter-spacing: -.015em;
+  margin-bottom: 26px;
+  opacity: 0; animation: riseUp 1s ease .5s forwards;
+}
+.hero-h1 em { font-style: italic; color: var(--gold); }
+
+.hero-p {
+  font-size: 1.05rem; color: var(--text-sub); font-weight: 300;
+  line-height: 1.75; max-width: 430px; margin-bottom: 52px;
+  opacity: 0; animation: riseUp .9s ease .7s forwards;
+}
+
+.hero-btns {
+  display: flex; gap: 14px; align-items: center; flex-wrap: wrap; justify-content: center;
+  opacity: 0; animation: riseUp .9s ease .9s forwards;
+}
+
+/* ── BUTTONS ─────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  font-family: var(--ff-body); font-weight: 500; letter-spacing: .07em; text-transform: uppercase;
+  text-decoration: none; border-radius: 100px;
+  transition: transform .22s, box-shadow .22s, background .22s, color .22s, border-color .22s;
+  cursor: pointer; white-space: nowrap; position: relative; overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(.97) !important; }
+
+.btn-glow {
+  padding: 15px 36px; font-size: .85rem; border: none;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  color: #fff; box-shadow: 0 0 40px rgba(124,58,237,.45), 0 4px 18px rgba(0,0,0,.45);
+}
+.btn-glow::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.13), transparent);
+  opacity: 0; transition: opacity .25s;
+}
+.btn-glow:hover { transform: translateY(-2px); box-shadow: 0 0 70px rgba(124,58,237,.65), 0 8px 28px rgba(0,0,0,.5); }
+.btn-glow:hover::after { opacity: 1; }
+
+.btn-ghost {
+  padding: 15px 26px; font-size: .85rem;
+  background: transparent; color: var(--text-sub);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--border-bright); background: var(--surface); }
+
+.btn-gold {
+  padding: 17px 32px; font-size: .87rem; border-radius: var(--r-md); border: none;
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 60%, rgba(201,168,76,.5) 100%);
+  color: #fff; box-shadow: 0 0 55px rgba(124,58,237,.45), 0 8px 30px rgba(0,0,0,.55);
+  width: 100%;
+}
+.btn-gold::before {
+  content: ''; position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.1), transparent);
+  transition: left .55s ease;
+}
+.btn-gold:hover { transform: translateY(-3px); box-shadow: 0 0 90px rgba(124,58,237,.65), 0 16px 48px rgba(0,0,0,.55); }
+.btn-gold:hover::before { left: 100%; }
+
+.btn-flat {
+  background: none; border: none; font-family: var(--ff-body);
+  color: var(--text-sub); font-size: .78rem; letter-spacing: .1em;
+  text-transform: uppercase; padding: 8px 4px; cursor: pointer;
+  transition: color .2s;
+}
+.btn-flat:hover { color: var(--text); }
+
+/* ── SCROLL HINT ─────────────────────── */
+.scroll-cue {
+  position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  color: var(--text-dim); font-family: var(--ff-mono);
+  font-size: .65rem; letter-spacing: .22em; text-transform: uppercase;
+  opacity: 0; animation: fadeIn 1s ease 1.6s forwards;
+}
+.scroll-line {
+  width: 1px; height: 52px;
+  background: linear-gradient(to bottom, var(--gold), transparent);
+  animation: scrollPulse 2.2s ease infinite;
+}
+@keyframes scrollPulse { 0%,100%{opacity:.25; transform:scaleY(1)} 50%{opacity:.9; transform:scaleY(.72)} }
+
+/* ── FEATURE STRIP ───────────────────── */
+#features {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.feat-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  background: var(--border); gap: 1px;
+}
+.feat-cell {
+  background: var(--bg); padding: 50px 38px;
+  transition: background .3s;
+}
+.feat-cell:hover { background: rgba(124,58,237,.04); }
+.feat-icon { width: 36px; height: 36px; margin-bottom: 22px; }
+.feat-title { font-family: var(--ff-display); font-size: 1.25rem; font-weight: 400; margin-bottom: 10px; }
+.feat-desc  { font-size: .86rem; color: var(--text-sub); line-height: 1.72; }
+
+/* ── SECTION LABELS ──────────────────── */
+.lbl {
+  font-family: var(--ff-mono); font-size: .68rem;
+  letter-spacing: .3em; text-transform: uppercase;
+  color: var(--gold); display: block; margin-bottom: 14px;
+}
+.sec-title {
+  font-family: var(--ff-display);
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  font-weight: 300; line-height: 1.08; margin-bottom: 14px;
+}
+.sec-sub { font-size: .97rem; color: var(--text-sub); margin-bottom: 60px; line-height: 1.7; }
+
+/* ── COMPOSE ─────────────────────────── */
+#compose { padding: 140px 0; }
+
+.compose-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 52px 52px 44px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 50px 100px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.compose-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 5%, var(--purple-soft) 40%, var(--gold) 60%, transparent 95%);
+  opacity: .45;
+}
+.compose-card::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 15% 0%, rgba(124,58,237,.07) 0%, transparent 55%);
+}
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+.fg        { display: flex; flex-direction: column; gap: 7px; }
+.fg.span2  { grid-column: 1/-1; }
+
+label {
+  font-family: var(--ff-mono); font-size: .67rem;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--text-sub);
+}
+.inp {
+  background: rgba(255,255,255,.035);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm); color: var(--text);
+  font-family: var(--ff-body); font-size: .94rem;
+  padding: 13px 17px; outline: none; width: 100%;
+  transition: border-color .28s, box-shadow .28s, background .28s;
+}
+.inp::placeholder { color: var(--text-dim); }
+.inp:hover:not(:focus) { border-color: var(--border-bright); }
+.inp:focus {
+  border-color: rgba(124,58,237,.55);
+  box-shadow: 0 0 0 3px rgba(124,58,237,.11), 0 0 22px rgba(124,58,237,.14);
+  background: rgba(124,58,237,.035);
+}
+.inp.error {
+  border-color: rgba(239,68,68,.6) !important;
+  box-shadow: 0 0 0 3px rgba(239,68,68,.1) !important;
+  animation: shake .35s ease;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 60%{transform:translateX(7px)} 80%{transform:translateX(-4px)}
+}
+textarea.inp { resize: vertical; min-height: 170px; line-height: 1.72; }
+input[type="datetime-local"].inp { color-scheme: dark; }
+
+.char-count { font-family: var(--ff-mono); font-size: .67rem; color: var(--text-dim); text-align: right; transition: color .25s; }
+.char-count.warn { color: var(--gold); }
+.char-count.over { color: var(--red); }
+
+.form-sep { height: 1px; background: var(--border); margin: 8px 0 24px; }
+
+/* ── STEPS ────────────────────────────── */
+#how { padding: 140px 0; }
+.step {
+  display: grid; grid-template-columns: 72px 1fr; gap: 36px;
+  align-items: start; padding: 44px 0;
+  border-bottom: 1px solid var(--border);
+  opacity: 0; transform: translateX(-16px);
+  transition: opacity .6s ease, transform .6s ease;
+}
+.step.vis { opacity: 1; transform: translateX(0); }
+.step-n {
+  font-family: var(--ff-display); font-size: 3.2rem;
+  font-weight: 300; color: var(--text-dim); line-height: 1;
+  transition: color .3s;
+}
+.step:hover .step-n { color: var(--gold); }
+.step-title { font-family: var(--ff-display); font-size: 1.5rem; font-weight: 400; margin-bottom: 7px; }
+.step-desc  { font-size: .87rem; color: var(--text-sub); line-height: 1.72; }
+
+/* ── MODAL ────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,.82);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  opacity: 0; visibility: hidden;
+  transition: opacity .35s ease, visibility .35s ease;
+}
+.overlay.on { opacity: 1; visibility: visible; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-xl); padding: 50px 44px;
+  max-width: 520px; width: 100%; text-align: center; position: relative;
+  transform: scale(.9) translateY(18px); opacity: 0;
+  transition: transform .4s cubic-bezier(.34,1.56,.64,1), opacity .4s ease;
+  box-shadow: 0 60px 120px rgba(0,0,0,.6), 0 0 60px rgba(124,58,237,.2);
+}
+.overlay.on .modal { transform: scale(1) translateY(0); opacity: 1; }
+.modal::before {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+.modal-ico { font-size: 2.8rem; margin-bottom: 18px; display: block; animation: icoBounce .6s cubic-bezier(.34,1.56,.64,1) .25s both; }
+@keyframes icoBounce { from{transform:scale(0) rotate(-25deg)} to{transform:scale(1) rotate(0)} }
+.modal-title { font-family: var(--ff-display); font-size: 2rem; font-weight: 400; margin-bottom: 9px; }
+.modal-sub   { color: var(--text-sub); font-size: .88rem; line-height: 1.65; margin-bottom: 30px; }
+
+.link-row {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.03); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 12px 16px; margin-bottom: 14px;
+}
+.link-val {
+  font-family: var(--ff-mono); font-size: .75rem; color: var(--purple-soft);
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  user-select: all; -webkit-user-select: all; cursor: text;
+}
+.copy-pill {
+  padding: 7px 16px; border-radius: 7px;
+  background: var(--purple); color: #fff;
+  font-size: .72rem; font-weight: 500; letter-spacing: .07em;
+  border: none; cursor: pointer; white-space: nowrap; font-family: var(--ff-body);
+  transition: background .2s, transform .15s;
+}
+.copy-pill:hover  { background: var(--purple-soft); transform: scale(1.04); }
+.copy-pill.ok     { background: #16a34a; }
+
+.modal-hint { font-family: var(--ff-mono); font-size: .67rem; color: var(--text-dim); margin-bottom: 22px; }
+
+.modal-actions { display: flex; flex-direction: column; gap: 10px; }
+.btn-preview {
+  padding: 14px; border-radius: var(--r-md); border: none; cursor: pointer;
+  font-family: var(--ff-body); font-size: .83rem; font-weight: 500;
+  letter-spacing: .08em; text-transform: uppercase;
+  background: linear-gradient(135deg, var(--purple), #5b21b6);
+  color: #fff;
+  box-shadow: 0 0 40px rgba(124,58,237,.4);
+  transition: transform .25s, box-shadow .25s;
+}
+.btn-preview:hover { transform: translateY(-2px); box-shadow: 0 0 65px rgba(124,58,237,.6); }
+
+/* ── TOAST ─────────────────────────────── */
+.toast {
+  position: fixed; bottom: 36px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: rgba(22,163,74,.92); color: #fff;
+  padding: 12px 26px; border-radius: 100px;
+  font-size: .82rem; font-weight: 500; letter-spacing: .06em;
+  backdrop-filter: blur(12px); z-index: 9000;
+  opacity: 0; transition: all .38s ease; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── OPEN CAPSULE ────────────────────────── */
+#open { padding: 100px 0; border-top: 1px solid var(--border); }
+
+.open-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 52px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 40px 80px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.open-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 5%, var(--gold) 50%, transparent 95%);
+  opacity: .35;
+}
+.open-card::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 85% 0%, rgba(201,168,76,.06) 0%, transparent 55%);
+}
+.open-row { display: flex; gap: 14px; align-items: flex-end; }
+.open-field { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.open-field label { font-family: var(--ff-mono); font-size: .67rem; letter-spacing: .16em; text-transform: uppercase; color: var(--text-sub); }
+.open-inp-wrap { position: relative; display: flex; align-items: center; }
+.open-inp-wrap .inp { padding-right: 40px; font-family: var(--ff-mono); font-size: .95rem; letter-spacing: .06em; }
+.open-inp-wrap .inp::placeholder { font-family: var(--ff-body); letter-spacing: 0; font-size: .94rem; }
+.open-clear {
+  position: absolute; right: 12px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-dim); font-size: .95rem; line-height: 1;
+  transition: color .2s; padding: 4px; display: none;
+}
+.open-clear.vis { display: block; }
+.open-clear:hover { color: var(--text-sub); }
+.open-hint { font-family: var(--ff-mono); font-size: .63rem; color: var(--text-dim); margin-top: 7px; line-height: 1.6; }
+
+.btn-open {
+  padding: 13px 28px; border-radius: var(--r-md); cursor: pointer;
+  font-family: var(--ff-body); font-size: .82rem; font-weight: 500;
+  letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+  background: transparent; color: var(--gold);
+  border: 1px solid rgba(201,168,76,.35);
+  transition: background .25s, border-color .25s, color .25s, transform .2s, box-shadow .25s;
+  flex-shrink: 0;
+}
+.btn-open:hover { background: rgba(201,168,76,.1); border-color: rgba(201,168,76,.6); box-shadow: 0 0 30px rgba(201,168,76,.15); transform: translateY(-1px); }
+.btn-open:active { transform: scale(.97); }
+
+.recent-wrap { margin-top: 32px; }
+.recent-title { font-family: var(--ff-mono); font-size: .63rem; letter-spacing: .2em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+.recent-list  { display: flex; flex-direction: column; gap: 8px; }
+.recent-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: rgba(255,255,255,.025); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 13px 16px;
+  cursor: pointer; transition: background .2s, border-color .2s; text-align: left;
+  width: 100%;
+}
+.recent-item:hover { background: rgba(255,255,255,.045); border-color: var(--border-bright); }
+.ri-left { flex: 1; min-width: 0; }
+.ri-names { font-size: .88rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.ri-meta  { font-family: var(--ff-mono); font-size: .62rem; color: var(--text-dim); }
+.ri-badge {
+  font-family: var(--ff-mono); font-size: .58rem; letter-spacing: .1em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 100px; flex-shrink: 0;
+}
+.badge-locked   { background: rgba(124,58,237,.15); color: var(--purple-soft); border: 1px solid rgba(124,58,237,.25); }
+.badge-open     { background: rgba(201,168,76,.12); color: var(--gold-light);  border: 1px solid rgba(201,168,76,.25); }
+
+@media (max-width: 700px) {
+  .open-row { flex-direction: column; align-items: stretch; }
+  .btn-open { width: 100%; }
+  .open-card { padding: 32px 24px; }
+}
+
+.modal-share-tabs {
+  display: flex; gap: 6px; margin-bottom: 16px;
+  background: rgba(255,255,255,.03); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 4px;
+}
+.share-tab {
+  flex: 1; padding: 9px 12px; border-radius: 7px; border: none; cursor: pointer;
+  font-family: var(--ff-body); font-size: .76rem; font-weight: 500; letter-spacing: .04em;
+  background: transparent; color: var(--text-sub);
+  transition: background .2s, color .2s;
+}
+.share-tab.active { background: rgba(124,58,237,.35); color: var(--text); }
+.share-tab:hover:not(.active) { background: rgba(255,255,255,.05); color: var(--text); }
+
+/* ── FOOTER ────────────────────────────── */
+footer {
+  padding: 64px 0 72px; border-top: 1px solid var(--border);
+  text-align: center; position: relative; z-index: 1;
+}
+.footer-logo {
+  font-family: var(--ff-display); font-size: 1.3rem; font-weight: 300;
+  letter-spacing: .22em; color: var(--text-sub); margin-bottom: 12px;
+}
+.footer-logo span { color: var(--gold); }
+.footer-sub { font-family: var(--ff-mono); font-size: .68rem; color: var(--text-dim); letter-spacing: .12em; }
+
+/* ── REVEAL PAGE ────────────────────────── */
+#reveal-pg {
+  display: none; min-height: 100vh;
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 80px 28px; text-align: center; position: relative; z-index: 1;
+}
+#reveal-pg.on { display: flex; }
+
+.back-btn {
+  position: fixed; top: 26px; left: 36px; z-index: 300;
+  display: none; align-items: center; gap: 8px;
+  font-family: var(--ff-mono); font-size: .68rem; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--text-sub); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 100px; padding: 10px 20px;
+  cursor: pointer; transition: color .2s, border-color .2s, background .2s;
+}
+.back-btn.on { display: flex; }
+.back-btn:hover { color: var(--text); border-color: var(--border-bright); background: var(--surface-hover); }
+
+/* locked */
+.locked-view { width: 100%; max-width: 680px; }
+.lock-graphic {
+  width: 90px; height: 90px; margin: 0 auto 44px; position: relative;
+}
+.lp1, .lp2 {
+  position: absolute; border-radius: 50%; border: 1px solid rgba(124,58,237,.3);
+  animation: lpPulse 2.4s ease infinite;
+}
+.lp1 { inset: -18px; }
+.lp2 { inset: -36px; animation-delay: .6s; opacity: .55; }
+@keyframes lpPulse { 0%{transform:scale(1);opacity:1} 100%{transform:scale(1.45);opacity:0} }
+.lock-svg-el { width: 100%; height: 100%; filter: drop-shadow(0 0 28px rgba(124,58,237,.55)); }
+
+.r-eyebrow { font-family: var(--ff-mono); font-size: .72rem; color: var(--gold); letter-spacing: .22em; text-transform: uppercase; margin-bottom: 14px; }
+.r-title   { font-family: var(--ff-display); font-size: clamp(1.8rem, 4.5vw, 3.2rem); font-weight: 300; margin-bottom: 10px; }
+.r-sub     { font-size: .9rem; color: var(--text-sub); margin-bottom: 52px; }
+
+.cdwn { display: flex; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 44px; }
+.cd-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.cd-n {
+  font-family: var(--ff-display); font-size: clamp(2.8rem, 7vw, 4.8rem); font-weight: 300; line-height: 1;
+  background: linear-gradient(180deg, var(--text) 0%, var(--text-sub) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  min-width: 84px; text-align: center; position: relative;
+}
+.cd-n::after { content: ''; position: absolute; bottom: -3px; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(124,58,237,.5), transparent); }
+.cd-l { font-family: var(--ff-mono); font-size: .6rem; letter-spacing: .2em; text-transform: uppercase; color: var(--text-dim); }
+.cd-sep { font-family: var(--ff-display); font-size: 3rem; color: var(--text-dim); align-self: center; padding-bottom: 18px; }
+.r-unlock-note { font-family: var(--ff-mono); font-size: .72rem; color: var(--text-sub); letter-spacing: .08em; }
+.r-unlock-note strong { color: var(--gold-light); }
+
+/* unlocked */
+.unlocked-view { width: 100%; max-width: 680px; opacity: 0; animation: revealIn 1.8s ease .2s forwards; }
+@keyframes revealIn { 0%{opacity:0;transform:translateY(36px)} 100%{opacity:1;transform:translateY(0)} }
+
+.msg-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-xl); padding: 52px;
+  position: relative; overflow: hidden; text-align: left;
+  box-shadow: 0 50px 100px rgba(0,0,0,.45), 0 0 50px rgba(201,168,76,.1);
+  margin-bottom: 36px;
+}
+.msg-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 5%, var(--gold) 50%, transparent 95%);
+}
+.msg-card::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 80% 0%, rgba(201,168,76,.05) 0%, transparent 55%);
+}
+
+.msg-from-lbl  { font-family: var(--ff-mono); font-size: .65rem; letter-spacing: .2em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; }
+.msg-from-name { font-family: var(--ff-display); font-size: 1.6rem; font-weight: 400; color: var(--gold-light); }
+.msg-to-name   { font-family: var(--ff-display); font-size: 1rem; color: var(--text-sub); font-style: italic; margin-top: 3px; }
+.msg-divider   { width: 36px; height: 1px; background: var(--border); margin: 26px 0; }
+
+.msg-body {
+  font-family: var(--ff-display); font-size: 1.28rem; font-weight: 300;
+  line-height: 1.9; color: var(--text); letter-spacing: .01em; min-height: 2em;
+}
+.blink-cur {
+  display: inline-block; width: 2px; height: 1.15em;
+  background: var(--gold); margin-left: 2px; vertical-align: middle;
+  animation: blinkAnim 1s ease infinite;
+}
+@keyframes blinkAnim { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.msg-foot {
+  margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.msg-meta-lbl { font-family: var(--ff-mono); font-size: .62rem; color: var(--text-dim); letter-spacing: .1em; margin-bottom: 3px; }
+.msg-meta-val { font-family: var(--ff-mono); font-size: .74rem; color: var(--text-sub); }
+
+#p-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+/* ── ANIMATIONS ──────────────────────── */
+@keyframes riseUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn { to { opacity: 1; } }
+
+.rise { opacity: 0; transform: translateY(28px); transition: opacity .65s ease, transform .65s ease; }
+.rise.vis { opacity: 1; transform: translateY(0); }
+
+/* ── RESPONSIVE ──────────────────────── */
+@media (max-width: 700px) {
+  nav { padding: 18px 20px; }
+  .feat-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .compose-card { padding: 32px 24px; }
+  .msg-card { padding: 36px 26px; }
+  .modal { padding: 40px 26px; }
+  .step { grid-template-columns: 52px 1fr; gap: 22px; }
+  .cdwn { gap: 10px; }
+  .cd-n { font-size: 2.4rem; min-width: 62px; }
+  .cd-sep { font-size: 2rem; }
+  .back-btn { left: 18px; top: 18px; padding: 8px 16px; }
+  .hero-btns { flex-direction: column; }
+  .btn-glow, .btn-ghost { width: 100%; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cur-ring"></div>
+
+<div id="loader">
+  <div class="ld-word">TIME CAPSULE</div>
+  <div class="ld-track"><div class="ld-fill"></div></div>
+</div>
+
+<canvas id="bg-canvas"></canvas>
+<div class="orb orb-a"></div>
+<div class="orb orb-b"></div>
+<div class="orb orb-c"></div>
+
+<nav id="navbar">
+  <a href="javascript:void(0)" class="nav-logo" id="nav-home">TIME<span>.</span>CAPSULE</a>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <a href="javascript:void(0)" class="nav-pill" id="nav-open-link" style="border-color:rgba(201,168,76,.3);color:var(--gold);">Open Capsule</a>
+    <a href="javascript:void(0)" class="nav-pill" id="nav-compose-link">Write a Message</a>
+  </div>
+</nav>
+
+<button class="back-btn" id="back-btn">← Back</button>
+
+<!-- ═══ LANDING ═══ -->
+<div id="landing">
+  <section id="hero">
+    <div class="hero-badge"><span class="hero-badge-dot"></span>Words across time</div>
+    <h1 class="hero-h1">Send a message<br>to the <em>future.</em></h1>
+    <p class="hero-p">Write what you feel today. Lock it until tomorrow, a year from now, or a decade ahead. Let time deliver it.</p>
+    <div class="hero-btns">
+      <button class="btn btn-glow" id="hero-cta">🔒 Create Your Capsule</button>
+      <button class="btn btn-ghost" id="hero-how">How it works →</button>
+    </div>
+    <div class="scroll-cue">
+      <span>Scroll</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="feat-grid">
+      <div class="feat-cell rise">
+        <svg class="feat-icon" viewBox="0 0 36 36" fill="none">
+          <circle cx="18" cy="18" r="16" stroke="#7c3aed" stroke-width="1.4"/>
+          <path d="M11 18l5 5 9-9" stroke="#c9a84c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="feat-title">Write Freely</div>
+        <div class="feat-desc">Pour your heart out. Your future self — or someone dear — is waiting to hear exactly what you needed to say.</div>
+      </div>
+      <div class="feat-cell rise" style="transition-delay:.12s">
+        <svg class="feat-icon" viewBox="0 0 36 36" fill="none">
+          <rect x="7" y="15" width="22" height="17" rx="3" stroke="#7c3aed" stroke-width="1.4"/>
+          <path d="M12 15v-4a6 6 0 0112 0v4" stroke="#c9a84c" stroke-width="1.6" stroke-linecap="round"/>
+          <circle cx="18" cy="23" r="2" fill="#c9a84c"/>
+        </svg>
+        <div class="feat-title">Time-Lock It</div>
+        <div class="feat-desc">Choose the exact moment your words unlock. Until then, they remain sealed — hidden from the world.</div>
+      </div>
+      <div class="feat-cell rise" style="transition-delay:.24s">
+        <svg class="feat-icon" viewBox="0 0 36 36" fill="none">
+          <path d="M18 6l3 6.5 7 1-5 5 1.2 7L18 22l-6.2 3.5 1.2-7-5-5 7-1z" stroke="#7c3aed" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+        <div class="feat-title">Cinematic Reveal</div>
+        <div class="feat-desc">When the moment arrives, a beautiful animation unveils your words — making the reveal as memorable as the message.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="compose">
+    <div class="wrap">
+      <span class="lbl rise">✦ Compose</span>
+      <h2 class="sec-title rise">Seal your words<br>in time.</h2>
+      <p class="sec-sub rise">Write a message and choose when it unlocks. The recipient sees a countdown until the moment arrives.</p>
+      <div class="compose-card rise">
+        <div class="form-grid">
+          <div class="fg">
+            <label for="f-from">From</label>
+            <input class="inp" type="text" id="f-from" placeholder="Your name…" maxlength="60" autocomplete="off">
+          </div>
+          <div class="fg">
+            <label for="f-to">To</label>
+            <input class="inp" type="text" id="f-to" placeholder="Recipient's name…" maxlength="60" autocomplete="off">
+          </div>
+          <div class="fg span2">
+            <label for="f-msg">Your Message</label>
+            <textarea class="inp" id="f-msg" placeholder="Write what the future needs to hear…" maxlength="1200" rows="7"></textarea>
+            <span class="char-count" id="char-ct">0 / 1200</span>
+          </div>
+          <div class="fg span2">
+            <label for="f-date">Unlock Date &amp; Time</label>
+            <input class="inp" type="datetime-local" id="f-date">
+          </div>
+        </div>
+        <div class="form-sep"></div>
+        <button class="btn btn-gold" id="lock-btn">🔒&nbsp; Lock &amp; Seal the Capsule</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="open">
+    <div class="wrap">
+      <span class="lbl rise">✦ Open</span>
+      <h2 class="sec-title rise">Open a capsule.</h2>
+      <p class="sec-sub rise">Received a capsule ID? Paste it below to see your message — or check the countdown until it unlocks.</p>
+      <div class="open-card rise">
+        <div class="open-row">
+          <div class="open-field">
+            <label for="open-inp">Capsule ID</label>
+            <div class="open-inp-wrap">
+              <input class="inp" type="text" id="open-inp" placeholder="Paste your capsule ID here…" autocomplete="off" spellcheck="false">
+              <button class="open-clear" id="open-clear-btn" title="Clear">✕</button>
+            </div>
+          </div>
+          <button class="btn-open" id="open-btn">Open →</button>
+        </div>
+        <p class="open-hint" id="open-hint">Enter the ID you received when the capsule was sealed.</p>
+        <div class="recent-wrap" id="recent-wrap" style="display:none">
+          <div class="recent-title">Your recent capsules</div>
+          <div class="recent-list" id="recent-list"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <span class="lbl rise">✦ Process</span>
+      <h2 class="sec-title rise">How it works.</h2>
+      <div>
+        <div class="step"><div class="step-n">01</div><div><div class="step-title">Write your message</div><div class="step-desc">Choose who it's from, who it's to, and what you want to say. Love letters, reminders, confessions — no rules.</div></div></div>
+        <div class="step"><div class="step-n">02</div><div><div class="step-title">Set the unlock date</div><div class="step-desc">Pick the exact moment your words are revealed. A week. A year. A decade. Time is yours to choose.</div></div></div>
+        <div class="step"><div class="step-n">03</div><div><div class="step-title">Share the capsule</div><div class="step-desc">A unique capsule is generated. Preview the reveal experience, or save the ID to return later.</div></div></div>
+        <div class="step"><div class="step-n">04</div><div><div class="step-title">The cinematic reveal</div><div class="step-desc">When the time comes, your message emerges through a stunning typewriter animation — a moment that feels earned.</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-logo">TIME<span>.</span>CAPSULE</div>
+    <div class="footer-sub">Words sealed across time — © 2025</div>
+  </footer>
+</div>
+
+<!-- ═══ REVEAL ═══ -->
+<div id="reveal-pg">
+  <canvas id="p-canvas"></canvas>
+  <div class="locked-view" id="lv">
+    <div class="lock-graphic">
+      <div class="lp1"></div><div class="lp2"></div>
+      <svg class="lock-svg-el" viewBox="0 0 90 90" fill="none">
+        <rect x="16" y="38" width="58" height="44" rx="8" fill="rgba(124,58,237,.18)" stroke="#7c3aed" stroke-width="1.8"/>
+        <path d="M30 38V29a15 15 0 0130 0v9" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="45" cy="60" r="5.5" fill="#c9a84c"/>
+        <line x1="45" y1="65.5" x2="45" y2="72" stroke="#c9a84c" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="r-eyebrow" id="rv-from"></div>
+    <h1 class="r-title" id="rv-title">This message is sealed.</h1>
+    <p class="r-sub" id="rv-sub">A message is waiting for you.</p>
+    <div class="cdwn" id="cdwn">
+      <div class="cd-cell"><div class="cd-n" id="cd-d">000</div><div class="cd-l">Days</div></div>
+      <div class="cd-sep">:</div>
+      <div class="cd-cell"><div class="cd-n" id="cd-h">00</div><div class="cd-l">Hours</div></div>
+      <div class="cd-sep">:</div>
+      <div class="cd-cell"><div class="cd-n" id="cd-m">00</div><div class="cd-l">Mins</div></div>
+      <div class="cd-sep">:</div>
+      <div class="cd-cell"><div class="cd-n" id="cd-s">00</div><div class="cd-l">Secs</div></div>
+    </div>
+    <p class="r-unlock-note" id="rv-note">Unlocks on <strong>—</strong></p>
+  </div>
+  <div class="unlocked-view" id="uv" style="display:none">
+    <div class="msg-card">
+      <div class="msg-from-lbl">A message from</div>
+      <div class="msg-from-name" id="u-from">—</div>
+      <div class="msg-to-name" id="u-to"></div>
+      <div class="msg-divider"></div>
+      <div class="msg-body" id="u-body"></div>
+      <div class="msg-foot">
+        <div><div class="msg-meta-lbl">Sealed on</div><div class="msg-meta-val" id="u-sealed">—</div></div>
+        <div><div class="msg-meta-lbl">Unlocked on</div><div class="msg-meta-val" id="u-opened">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="modal-overlay">
+  <div class="modal">
+    <span class="modal-ico">🔒</span>
+    <h2 class="modal-title">Capsule Sealed</h2>
+    <p class="modal-sub">Share the link below — recipients open it directly in their browser. The capsule ID also works in the "Open Capsule" section on this device.</p>
+
+    <div class="modal-share-tabs">
+      <button class="share-tab active" id="tab-link">🔗 Shareable Link</button>
+      <button class="share-tab" id="tab-id">🔑 Capsule ID</button>
+    </div>
+
+    <div id="share-link-panel">
+      <div class="link-row">
+        <span class="link-val" id="modal-link-url">—</span>
+        <button class="copy-pill" id="copy-link-btn">Copy</button>
+      </div>
+      <p class="modal-hint">Anyone with this link can open the capsule in their browser</p>
+    </div>
+
+    <div id="share-id-panel" style="display:none">
+      <div class="link-row">
+        <span class="link-val" id="modal-link-txt">—</span>
+        <button class="copy-pill" id="copy-pill">Copy ID</button>
+      </div>
+      <p class="modal-hint">Paste this ID in the "Open Capsule" section on this device</p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-preview" id="btn-preview">✨ Preview the Reveal</button>
+      <button class="btn-flat" id="btn-close-modal">← Back to Compose</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Copied</div>
+
+<script>
+(function () {
+'use strict';
+
+/* STATE */
+var activeCapsule = null;
+var cdTimer = null;
+
+/* ── HASH ROUTING ─────────────────────────────────────────────────────
+   We encode the full capsule as base64 JSON in the URL hash so the link
+   works even on a fresh device without localStorage.
+   Format:  #open/<base64data>
+   We also keep localStorage as fallback / "recent capsules".
+──────────────────────────────────────────────────────────────────────── */
+function encodeHash(data){
+  try{
+    var json = JSON.stringify(data);
+    // TextEncoder handles full Unicode including emoji
+    if(typeof TextEncoder !== 'undefined'){
+      var bytes = new TextEncoder().encode(json);
+      var bin = String.fromCharCode.apply(null, bytes);
+      return btoa(bin);
+    }
+    return btoa(encodeURIComponent(json).replace(/%([0-9A-F]{2})/g,function(_,p){ return String.fromCharCode(parseInt(p,16)); }));
+  }catch(e){ return ''; }
+}
+function decodeHash(str){
+  try{
+    var bin = atob(str);
+    if(typeof TextDecoder !== 'undefined'){
+      var bytes = new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
+    return JSON.parse(decodeURIComponent(bin.split('').map(function(c){ return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2); }).join('')));
+  }catch(e){ return null; }
+}
+function buildShareURL(data){
+  var hash = '#open/' + encodeHash(data);
+  try{
+    var href = location.href;
+    // Detect sandbox (about:srcdoc or claudeusercontent)
+    if(href && href !== 'about:srcdoc' && href.indexOf('about:') !== 0){
+      return href.split('#')[0] + hash;
+    }
+  }catch(e){}
+  // In sandbox: return a clear note + the hash so user knows what to append to their deployed URL
+  return '[your-site-url]' + hash;
+}
+
+/* ── LOADER ─────────────────────────────── */
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    document.getElementById('loader').classList.add('out');
+    renderRecent();
+    checkHash(); // auto-open if link was shared
+  }, 1700);
+});
+
+/* ── HASH CHANGE (back/forward nav) ─────── */
+window.addEventListener('hashchange', function(){ checkHash(); });
+
+function checkHash(){
+  try{
+    var hash = location.hash;
+    if(hash && hash.indexOf('#open/')===0){
+      var data = decodeHash(hash.slice(6));
+      if(data && data.id){
+        activeCapsule = data; // set before showReveal so memory fallback works too
+        showReveal(data.id);
+      }
+    }
+  }catch(e){}
+}
+
+/* ── CURSOR ─────────────────────────────── */
+var cur  = document.getElementById('cur');
+var ring = document.getElementById('cur-ring');
+var mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove', function(e){
+  mx=e.clientX; my=e.clientY;
+  cur.style.left=mx+'px'; cur.style.top=my+'px'; cur.style.opacity='1';
+});
+(function raf(){ rx+=(mx-rx)*.1; ry+=(my-ry)*.1; ring.style.left=rx+'px'; ring.style.top=ry+'px'; requestAnimationFrame(raf); })();
+document.addEventListener('mouseover', function(e){
+  var t=e.target.closest('button,a');
+  if(t){ cur.style.width='13px'; cur.style.height='13px'; ring.style.width='52px'; ring.style.height='52px'; }
+  else { cur.style.width='7px';  cur.style.height='7px';  ring.style.width='32px'; ring.style.height='32px'; }
+});
+
+/* ── BG PARTICLES ────────────────────────── */
+var bgC=document.getElementById('bg-canvas'), bgX=bgC.getContext('2d'), pts=[];
+function resize(){ bgC.width=innerWidth; bgC.height=innerHeight; }
+resize(); window.addEventListener('resize',resize);
+for(var i=0;i<110;i++) pts.push(mkPt());
+function mkPt(){ return{x:Math.random()*bgC.width,y:Math.random()*bgC.height,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r:Math.random()*1.4+.3,a:Math.random()*.45+.1,c:Math.random()>.6?'201,168,76':'124,58,237'}; }
+(function draw(){
+  bgX.clearRect(0,0,bgC.width,bgC.height);
+  pts.forEach(function(p){ p.x+=p.vx; p.y+=p.vy; if(p.x<0)p.x=bgC.width; if(p.x>bgC.width)p.x=0; if(p.y<0)p.y=bgC.height; if(p.y>bgC.height)p.y=0; bgX.beginPath(); bgX.arc(p.x,p.y,p.r,0,Math.PI*2); bgX.fillStyle='rgba('+p.c+','+p.a+')'; bgX.fill(); });
+  requestAnimationFrame(draw);
+})();
+
+/* ── NAV SCROLL ──────────────────────────── */
+window.addEventListener('scroll', function(){ document.getElementById('navbar').classList.toggle('scrolled',scrollY>30); });
+
+/* ── SCROLL ANIMATIONS ───────────────────── */
+var io=new IntersectionObserver(function(entries){ entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add('vis'); }); },{threshold:.1});
+document.querySelectorAll('.rise,.step').forEach(function(el){ io.observe(el); });
+
+/* ── CHAR COUNT ──────────────────────────── */
+var fMsg=document.getElementById('f-msg'), charCt=document.getElementById('char-ct');
+fMsg.addEventListener('input', function(){
+  var n=fMsg.value.length; charCt.textContent=n+' / 1200';
+  charCt.className='char-count'+(n>1100?' warn':'')+(n>=1200?' over':'');
+});
+
+/* ── DATE MIN ────────────────────────────── */
+(function(){
+  var inp=document.getElementById('f-date'), d=new Date(); d.setMinutes(d.getMinutes()+5);
+  var p=function(n){ return String(n).padStart(2,'0'); };
+  inp.min=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+})();
+
+/* ── NAV WIRING ──────────────────────────── */
+document.getElementById('hero-cta').addEventListener('click', function(){
+  document.getElementById('compose').scrollIntoView({behavior:'smooth'});
+});
+document.getElementById('hero-how').addEventListener('click', function(){
+  document.getElementById('how').scrollIntoView({behavior:'smooth'});
+});
+document.getElementById('nav-home').addEventListener('click', function(e){
+  e.preventDefault();
+  showLanding();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+document.getElementById('nav-open-link').addEventListener('click', function(e){
+  e.preventDefault();
+  if(document.getElementById('reveal-pg').classList.contains('on')){
+    showLanding();
+    setTimeout(function(){ document.getElementById('open').scrollIntoView({behavior:'smooth'}); },120);
+  } else {
+    document.getElementById('open').scrollIntoView({behavior:'smooth'});
+  }
+});
+document.getElementById('nav-compose-link').addEventListener('click', function(e){
+  e.preventDefault();
+  if(document.getElementById('reveal-pg').classList.contains('on')){
+    showLanding();
+    setTimeout(function(){ document.getElementById('compose').scrollIntoView({behavior:'smooth'}); },120);
+  } else {
+    document.getElementById('compose').scrollIntoView({behavior:'smooth'});
+  }
+});
+document.getElementById('back-btn').addEventListener('click', showLanding);
+document.getElementById('lock-btn').addEventListener('click', lockMessage);
+document.getElementById('btn-preview').addEventListener('click', previewCapsule);
+document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', function(e){
+  if(e.target===document.getElementById('modal-overlay')) closeModal();
+});
+
+/* ── MODAL TABS ──────────────────────────── */
+document.getElementById('tab-link').addEventListener('click', function(){
+  document.getElementById('tab-link').classList.add('active');
+  document.getElementById('tab-id').classList.remove('active');
+  document.getElementById('share-link-panel').style.display='block';
+  document.getElementById('share-id-panel').style.display='none';
+});
+document.getElementById('tab-id').addEventListener('click', function(){
+  document.getElementById('tab-id').classList.add('active');
+  document.getElementById('tab-link').classList.remove('active');
+  document.getElementById('share-id-panel').style.display='block';
+  document.getElementById('share-link-panel').style.display='none';
+});
+
+/* ── COPY BUTTONS ────────────────────────── */
+document.getElementById('copy-link-btn').addEventListener('click', function(){
+  copyText(document.getElementById('modal-link-url').textContent, this, '✓ Link Copied!', 'Copy');
+});
+document.getElementById('copy-pill').addEventListener('click', function(){
+  copyText(document.getElementById('modal-link-txt').textContent, this, '✓ Copied!', 'Copy ID');
+});
+
+function copyText(txt, btn, successLabel, resetLabel){
+  function done(ok){
+    if(ok){
+      btn.textContent=successLabel; btn.classList.add('ok');
+      showToastMsg('✓ Copied to clipboard','ok');
+      setTimeout(function(){ btn.textContent=resetLabel; btn.classList.remove('ok'); },2400);
+    } else {
+      // Last resort: select the text in the link-val element so user can manually copy
+      btn.textContent='Select & Copy'; 
+      var el = btn.previousElementSibling;
+      if(el){ 
+        var range = document.createRange(); range.selectNodeContents(el);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      }
+      setTimeout(function(){ btn.textContent=resetLabel; btn.classList.remove('ok'); },3000);
+    }
+  }
+  // Method 1: modern clipboard API
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ done(true); }).catch(function(){ tryExecCommand(); });
+  } else {
+    tryExecCommand();
+  }
+  function tryExecCommand(){
+    // Method 2: execCommand (works in most sandboxed iframes)
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      done(ok);
+    } catch(e){ done(false); }
+  }
+}
+
+/* ── OPEN CAPSULE WIRING ─────────────────── */
+var openInp = document.getElementById('open-inp');
+var openClearBtn = document.getElementById('open-clear-btn');
+openInp.addEventListener('input', function(){
+  var v = openInp.value.trim();
+  openClearBtn.classList.toggle('vis', v.length > 0);
+  document.getElementById('open-hint').textContent = v.length > 0 ? 'Press Open or hit Enter to view your capsule.' : 'Enter the ID you received when the capsule was sealed.';
+  openInp.classList.remove('error');
+});
+openInp.addEventListener('keydown', function(e){
+  openInp.classList.remove('error');
+  if(e.key==='Enter') openCapsule();
+});
+openClearBtn.addEventListener('click', function(){
+  openInp.value=''; openInp.focus(); openClearBtn.classList.remove('vis'); openInp.classList.remove('error');
+  document.getElementById('open-hint').textContent='Enter the ID you received when the capsule was sealed.';
+});
+document.getElementById('open-btn').addEventListener('click', openCapsule);
+
+/* ── LOCK MESSAGE ────────────────────────── */
+function lockMessage(){
+  var sender  = document.getElementById('f-from').value.trim();
+  var receiver= document.getElementById('f-to').value.trim();
+  var message = document.getElementById('f-msg').value.trim();
+  var dt      = document.getElementById('f-date').value;
+  clearErrors(); var ok=true;
+  if(!sender)                      { setError('f-from'); ok=false; }
+  if(!message)                     { setError('f-msg');  ok=false; }
+  if(!dt)                          { setError('f-date'); ok=false; }
+  else if(new Date(dt)<=new Date()){ setError('f-date'); showToastMsg('Please choose a future date.','err'); ok=false; }
+  if(!ok) return;
+
+  var id=genId();
+  activeCapsule={id:id,sender:sender,receiver:receiver,message:message,unlockDate:dt,createdAt:new Date().toISOString()};
+  try{ localStorage.setItem('tc_'+id, JSON.stringify(activeCapsule)); }catch(e){}
+  renderRecent();
+
+  // Build shareable link (hash-based, works anywhere)
+  var shareURL = buildShareURL(activeCapsule);
+  document.getElementById('modal-link-url').textContent = shareURL;
+  document.getElementById('modal-link-txt').textContent = id;
+
+  // Reset tabs to link tab
+  document.getElementById('tab-link').classList.add('active');
+  document.getElementById('tab-id').classList.remove('active');
+  document.getElementById('share-link-panel').style.display='block';
+  document.getElementById('share-id-panel').style.display='none';
+
+  openModal(); playLock();
+
+  // Reset form for next use
+  document.getElementById('f-from').value='';
+  document.getElementById('f-to').value='';
+  document.getElementById('f-msg').value='';
+  document.getElementById('f-date').value='';
+  charCt.textContent='0 / 1200';
+  charCt.className='char-count';
+}
+
+function setError(id){
+  var el=document.getElementById(id); el.classList.add('error');
+  el.addEventListener('input',function(){ el.classList.remove('error'); },{once:true});
+}
+function clearErrors(){ ['f-from','f-msg','f-date'].forEach(function(id){ document.getElementById(id).classList.remove('error'); }); }
+function genId(){ return Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4); }
+
+/* ── OPEN CAPSULE ────────────────────────── */
+function openCapsule(){
+  var id = openInp.value.trim();
+  if(!id){ setError('open-inp'); showToastMsg('Please enter a capsule ID.','err'); return; }
+  var data = null;
+  try{ var raw=localStorage.getItem('tc_'+id); if(raw) data=JSON.parse(raw); }catch(e){}
+  if(!data){
+    setError('open-inp');
+    var hint = document.getElementById('open-hint');
+    hint.textContent='✕ No capsule found with that ID. Check for typos.';
+    hint.style.color='rgba(239,68,68,.8)';
+    setTimeout(function(){ hint.style.color=''; hint.textContent='Enter the ID you received when the capsule was sealed.'; },3500);
+    return;
+  }
+  showReveal(id);
+}
+
+/* ── RECENT CAPSULES ─────────────────────── */
+function renderRecent(){
+  var list=[]; var keys=[];
+  try{ for(var k in localStorage){ if(k.indexOf('tc_')===0) keys.push(k); } }catch(e){}
+  keys.forEach(function(k){ try{ var d=JSON.parse(localStorage.getItem(k)); if(d&&d.id) list.push(d); }catch(e){} });
+  list.sort(function(a,b){ return new Date(b.createdAt)-new Date(a.createdAt); });
+  var wrap=document.getElementById('recent-wrap'), ul=document.getElementById('recent-list');
+  if(list.length===0){ wrap.style.display='none'; return; }
+  wrap.style.display='block'; ul.innerHTML='';
+  list.slice(0,5).forEach(function(d){
+    var unlocked=new Date()>=new Date(d.unlockDate);
+    var btn=document.createElement('button'); btn.className='recent-item';
+    var label=(d.sender||'?')+(d.receiver?' → '+d.receiver:'');
+    btn.innerHTML='<div class="ri-left"><div class="ri-names">'+esc(label)+'</div><div class="ri-meta">ID: '+esc(d.id)+' · '+fmtDate(d.unlockDate)+'</div></div>'
+      +'<span class="ri-badge '+(unlocked?'badge-open':'badge-locked')+'">'+(unlocked?'Open':'Locked')+'</span>';
+    btn.addEventListener('click', function(){ showReveal(d.id); });
+    ul.appendChild(btn);
+  });
+}
+function esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+/* ── MODAL ───────────────────────────────── */
+function openModal()  { document.getElementById('modal-overlay').classList.add('on'); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('on'); }
+function previewCapsule(){ if(!activeCapsule)return; closeModal(); showReveal(activeCapsule.id); }
+
+/* ── TOAST ───────────────────────────────── */
+function showToastMsg(msg, type){
+  var t=document.getElementById('toast'); t.textContent=msg;
+  t.style.background=type==='err'?'rgba(239,68,68,.92)':'rgba(22,163,74,.92)';
+  t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },3000);
+}
+
+/* ── ROUTING ─────────────────────────────── */
+function showLanding(){
+  document.getElementById('landing').style.display='block';
+  document.getElementById('reveal-pg').classList.remove('on');
+  document.getElementById('back-btn').classList.remove('on');
+  if(cdTimer){ clearInterval(cdTimer); cdTimer=null; }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderRecent();
+}
+
+function showReveal(id){
+  document.getElementById('landing').style.display='none';
+  document.getElementById('reveal-pg').classList.add('on');
+  document.getElementById('back-btn').classList.add('on');
+
+  // Priority: 1) hash (self-contained, works on any device)
+  //           2) activeCapsule in memory
+  //           3) localStorage (same device only)
+  var data = null;
+
+  // 1. Try to decode directly from current URL hash
+  try{
+    var h = location.hash;
+    if(h && h.indexOf('#open/')===0){
+      var decoded = decodeHash(h.slice(6));
+      if(decoded && decoded.id === id) data = decoded;
+    }
+  }catch(e){}
+
+  // 2. Fall back to in-memory state
+  if(!data && activeCapsule && activeCapsule.id === id) data = activeCapsule;
+
+  // 3. Fall back to localStorage (same device)
+  if(!data){ try{ var raw=localStorage.getItem('tc_'+id); if(raw) data=JSON.parse(raw); }catch(e){} }
+
+  if(!data){
+    document.getElementById('lv').style.display='block';
+    document.getElementById('uv').style.display='none';
+    document.getElementById('rv-title').textContent='Capsule not found.';
+    document.getElementById('rv-from').textContent='';
+    document.getElementById('rv-sub').textContent='This capsule ID may be invalid or the link is incomplete.';
+    document.getElementById('cdwn').style.display='none';
+    document.getElementById('rv-note').style.display='none';
+    return;
+  }
+
+  // Always keep activeCapsule and localStorage in sync
+  activeCapsule = data;
+  try{ localStorage.setItem('tc_'+id, JSON.stringify(data)); }catch(e){}
+
+  var unlock=new Date(data.unlockDate);
+  if(new Date()>=unlock) showUnlocked(data);
+  else showLocked(data,unlock);
+}
+
+function showLocked(data, unlock){
+  // Clear any existing timer first to prevent leaks on rapid navigation
+  if(cdTimer){ clearInterval(cdTimer); cdTimer=null; }
+  document.getElementById('lv').style.display='block';
+  document.getElementById('uv').style.display='none';
+  document.getElementById('rv-from').textContent=data.sender?'From — '+data.sender:'';
+  document.getElementById('rv-title').textContent=data.receiver?'A message for '+data.receiver+'.':'This message is sealed.';
+  document.getElementById('rv-sub').textContent='This capsule is sealed until the moment arrives.';
+  document.getElementById('rv-note').innerHTML='Unlocks on <strong>'+fmtDate(data.unlockDate)+'</strong>';
+  document.getElementById('cdwn').style.display='flex';
+  document.getElementById('rv-note').style.display='block';
+  function tick(){
+    var diff=unlock-new Date();
+    if(diff<=0){ clearInterval(cdTimer); cdTimer=null; showUnlocked(data); return; }
+    var d=Math.floor(diff/86400000), h=Math.floor((diff%86400000)/3600000),
+        m=Math.floor((diff%3600000)/60000), s=Math.floor((diff%60000)/1000);
+    document.getElementById('cd-d').textContent=String(d).padStart(3,'0');
+    document.getElementById('cd-h').textContent=String(h).padStart(2,'0');
+    document.getElementById('cd-m').textContent=String(m).padStart(2,'0');
+    document.getElementById('cd-s').textContent=String(s).padStart(2,'0');
+  }
+  tick(); cdTimer=setInterval(tick,1000);
+}
+
+var typewriterDone = false; // unused, kept for reference
+
+function showUnlocked(data){
+  if(cdTimer){ clearInterval(cdTimer); cdTimer=null; }
+  document.getElementById('lv').style.display='none';
+  var uv = document.getElementById('uv');
+  uv.style.display='block';
+  // Always replay the reveal animation
+  uv.style.animation='none'; void uv.offsetWidth; uv.style.animation='revealIn 1.8s ease .2s forwards';
+
+  document.getElementById('u-from').textContent=data.sender||'Anonymous';
+  document.getElementById('u-to').textContent=data.receiver?'For '+data.receiver:'';
+  document.getElementById('u-sealed').textContent=fmtDate(data.createdAt);
+  document.getElementById('u-opened').textContent=fmtDate(data.unlockDate);
+
+  var bodyEl=document.getElementById('u-body');
+  bodyEl.innerHTML='';
+  var bc=document.createElement('span'); bc.className='blink-cur'; bodyEl.appendChild(bc);
+  var text=data.message, i=0;
+  playReveal(); burst();
+  function type(){
+    if(i<text.length){ bodyEl.insertBefore(document.createTextNode(text[i]),bc); i++; setTimeout(type,26+Math.random()*16); }
+    else { setTimeout(function(){ if(bc.parentNode) bc.remove(); },2500); }
+  }
+  setTimeout(type,900);
+}
+
+/* ── PARTICLES ───────────────────────────── */
+function burst(){
+  var pc=document.getElementById('p-canvas'); if(!pc)return;
+  pc.width=innerWidth; pc.height=innerHeight;
+  var cx=pc.getContext('2d'), parts=[];
+  for(var i=0;i<100;i++){
+    var a=Math.random()*Math.PI*2, sp=Math.random()*5+1.5;
+    parts.push({x:innerWidth/2+(Math.random()-.5)*160,y:innerHeight/2+(Math.random()-.5)*160,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-Math.random()*3,r:Math.random()*3+.8,alpha:1,c:Math.random()>.45?'201,168,76':'168,85,247'});
+  }
+  (function draw(){
+    cx.clearRect(0,0,pc.width,pc.height);
+    parts.forEach(function(p){ p.x+=p.vx; p.y+=p.vy; p.vy+=.07; p.alpha-=.013; cx.beginPath(); cx.arc(p.x,p.y,p.r,0,Math.PI*2); cx.fillStyle='rgba('+p.c+','+Math.max(0,p.alpha)+')'; cx.fill(); });
+    parts=parts.filter(function(p){ return p.alpha>0; });
+    if(parts.length) requestAnimationFrame(draw);
+    else cx.clearRect(0,0,pc.width,pc.height);
+  })();
+}
+
+/* ── SOUND ───────────────────────────────── */
+function playLock(){
+  try{
+    var ac=new(window.AudioContext||window.webkitAudioContext)();
+    [[220,0],[330,.1],[440,.2],[660,.35]].forEach(function(pair){
+      var o=ac.createOscillator(),g=ac.createGain(); o.connect(g); g.connect(ac.destination);
+      o.frequency.value=pair[0]; o.type='sine';
+      g.gain.setValueAtTime(.13,ac.currentTime+pair[1]);
+      g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+pair[1]+.4);
+      o.start(ac.currentTime+pair[1]); o.stop(ac.currentTime+pair[1]+.4);
+    });
+  }catch(e){}
+}
+function playReveal(){
+  try{
+    var ac=new(window.AudioContext||window.webkitAudioContext)();
+    [[330,0],[440,.1],[550,.22],[660,.34],[880,.5]].forEach(function(pair){
+      var o=ac.createOscillator(),g=ac.createGain(); o.connect(g); g.connect(ac.destination);
+      o.frequency.value=pair[0]; o.type='sine';
+      g.gain.setValueAtTime(.1,ac.currentTime+pair[1]);
+      g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+pair[1]+.55);
+      o.start(ac.currentTime+pair[1]); o.stop(ac.currentTime+pair[1]+.55);
+    });
+  }catch(e){}
+}
+
+/* ── HELPERS ─────────────────────────────── */
+function fmtDate(iso){ return new Date(iso).toLocaleString('en-US',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+})();
+</script>
+</body>
+</html>
